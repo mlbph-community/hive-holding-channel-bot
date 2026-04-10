@@ -95,7 +95,13 @@ async def start_telegram_bot() -> None:
         timezone=settings.timezone,
         admin_chat_id=settings.admin_chat_id,
     )
-
+    
+    logger.info(
+        "Chat targets | holding=%s | staging=%s | admin=%s",
+        settings.holding_chat_id,
+        settings.staging_chat_id,
+        settings.admin_chat_id,
+    )
     telegram_app.bot_data["settings"] = settings
     telegram_app.bot_data["store"] = store
     telegram_app.bot_data["sheets"] = sheets
