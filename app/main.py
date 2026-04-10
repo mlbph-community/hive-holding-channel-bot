@@ -172,12 +172,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     return {"ok": True, "service": "holding-channel-content-bot"}
 
 
-@app.get("/healthz")
+@app.api_route("/healthz", methods=["GET", "HEAD"])
 async def healthz():
     paused = False
     redis_ok = False
