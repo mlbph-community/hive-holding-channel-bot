@@ -1,13 +1,14 @@
-import logging
-logger = logging.getLogger(__name__)
-
 from __future__ import annotations
+
+import logging
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application
 
 from app.redis_store import RedisStore
 from app.utils import extract_message_id_from_link
+
+logger = logging.getLogger(__name__)
 
 
 class Poster:
