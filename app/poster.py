@@ -1,3 +1,6 @@
+import logging
+logger = logging.getLogger(__name__)
+
 from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -37,6 +40,12 @@ class Poster:
 
     async def send(self, post) -> int:
         media_type = post.media_type.strip().lower()
+        logger.info(
+            "Sending post %s to holding_chat_id=%s as media_type=%s",
+            post.post_id,
+            self.holding_chat_id,
+            media_type,
+        )
         reply_markup = self._reply_markup(post)
 
         if media_type == "text only":
