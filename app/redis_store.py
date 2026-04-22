@@ -44,6 +44,33 @@ class RedisStore:
         pipe.delete(f"post:{post_id}:error")
         pipe.execute()
 
+    def _target_base_key(self, post_id: str, chat_id: int) -> str:
+        return f"post:{post_id}:{chat_id}"
+
+    def was_sent_to(self, post_id: str, chat_id: int) -> bool:
+        return self.client.get(f"{self._target_base_key(post_id, chat_id)}:sent") == "1"
+
+    def mark_sent_to(self, post_id: str, chat_id: int, message_id: int) -> None:
+        pipe = self.client.pipeline()
+        pipe.set(f"{self._target_base_key(post_id, chat_id)}:sent", "1")
+        pipe.set(f"{self._target_base_key(post_id, chat_id)}:message_id", str(message_id))
+        pipe.execute()
+
+    def get_sent_message_id_for(self, post_id: str, chat_id: int) -> Optional[str]:
+        return self.client.get(f"{self._target_base_key(post_id, chat_id)}:message_id")
+
+    def mark_failed_to(self, post_id: str, chat_id: int, error_text: str) -> None:
+        pipe = self.client.pipeline()
+        pipe.set(f"{self._target_base_key(post_id, chat_id)}:failed", "1")
+        pipe.set(f"{self._target_base_key(post_id, chat_id)}:error", error_text[:1000])
+        pipe.execute()
+
+    def clear_failed_to(self, post_id: str, chat_id: int) -> None:
+        pipe = self.client.pipeline()
+        pipe.delete(f"{self._target_base_key(post_id, chat_id)}:failed")
+        pipe.delete(f"{self._target_base_key(post_id, chat_id)}:error")
+        pipe.execute()
+
     def cache_staging_album_member(self, message_id: int, media_group_id: str) -> None:
         group_key = f"staging:album:{media_group_id}"
         member_key = f"staging:album_member:{message_id}"
