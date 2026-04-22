@@ -86,6 +86,7 @@ async def start_telegram_bot() -> None:
         holding_chat_id=settings.holding_chat_id,
         staging_chat_id=settings.staging_chat_id,
         store=store,
+        melbet_philippines_chat_id=settings.melbet_philippines_chat_id,
     )
     scheduler_service = SchedulerService(
         application=telegram_app,
@@ -97,8 +98,9 @@ async def start_telegram_bot() -> None:
     )
     
     logger.info(
-        "Chat targets | holding=%s | staging=%s | admin=%s",
+        "Chat targets | holding=%s | melbet_ph=%s | staging=%s | admin=%s",
         settings.holding_chat_id,
+        settings.melbet_philippines_chat_id,
         settings.staging_chat_id,
         settings.admin_chat_id,
     )
