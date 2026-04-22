@@ -18,11 +18,13 @@ class Poster:
         holding_chat_id: int,
         staging_chat_id: int,
         store: RedisStore,
+        melbet_philippines_chat_id: int | None = None,
     ) -> None:
         self.application = application
         self.holding_chat_id = holding_chat_id
         self.staging_chat_id = staging_chat_id
         self.store = store
+        self.melbet_philippines_chat_id = melbet_philippines_chat_id
 
     def _reply_markup(self, post) -> InlineKeyboardMarkup | None:
         if post.button_text.strip() and post.button_url.strip():
@@ -39,19 +41,40 @@ class Poster:
             return "Open below 👇"
         return ""
 
-    async def send(self, post) -> int:
+    def resolve_target_chat_ids(self, post) -> list[int]:
+        target_value = (post.target_channel_text or "").strip()
+
+        if not target_value or target_value == "Holding Channel":
+            return [self.holding_chat_id]
+
+        if target_value == "Melbet Philippines":
+            if self.melbet_philippines_chat_id is None:
+                raise ValueError("MELBET_PHILIPPINES_CHAT_ID is not configured")
+            return [self.melbet_philippines_chat_id]
+
+        if target_value == "Both":
+            if self.melbet_philippines_chat_id is None:
+                raise ValueError("MELBET_PHILIPPINES_CHAT_ID is not configured")
+            return [self.holding_chat_id, self.melbet_philippines_chat_id]
+
+        raise ValueError(f"Unsupported Target Channel: {target_value}")
+
+    async def send(self, post, target_chat_id: int | None = None) -> int:
         media_type = post.media_type.strip().lower()
-        logger.info(
-            "Sending post %s to holding_chat_id=%s as media_type=%s",
-            post.post_id,
-            self.holding_chat_id,
-            media_type,
-        )
         reply_markup = self._reply_markup(post)
+        resolved_chat_id = target_chat_id if target_chat_id is not None else self.holding_chat_id
+
+        logger.info(
+            "Sending post %s to chat_id=%s as media_type=%s target=%s",
+            post.post_id,
+            resolved_chat_id,
+            media_type,
+            (post.target_channel_text or "").strip(),
+        )
 
         if media_type == "text only":
             message = await self.application.bot.send_message(
-                chat_id=self.holding_chat_id,
+                chat_id=resolved_chat_id,
                 text=post.caption,
                 reply_markup=reply_markup,
                 disable_web_page_preview=False,
@@ -62,7 +85,7 @@ class Poster:
             source_message_id = extract_message_id_from_link(post.staging_post_link)
 
             copied = await self.application.bot.copy_message(
-                chat_id=self.holding_chat_id,
+                chat_id=resolved_chat_id,
                 from_chat_id=self.staging_chat_id,
                 message_id=source_message_id,
                 reply_markup=reply_markup if not post.caption.strip() else None,
@@ -72,7 +95,7 @@ class Poster:
 
             if post.caption.strip():
                 await self.application.bot.edit_message_caption(
-                    chat_id=self.holding_chat_id,
+                    chat_id=resolved_chat_id,
                     message_id=copied_message_id,
                     caption=post.caption,
                     reply_markup=reply_markup,
@@ -91,7 +114,7 @@ class Poster:
                 )
 
             copied = await self.application.bot.copy_messages(
-                chat_id=self.holding_chat_id,
+                chat_id=resolved_chat_id,
                 from_chat_id=self.staging_chat_id,
                 message_ids=album_message_ids,
             )
@@ -101,7 +124,7 @@ class Poster:
             followup_text = self._album_followup_text(post)
             if followup_text or reply_markup:
                 followup = await self.application.bot.send_message(
-                    chat_id=self.holding_chat_id,
+                    chat_id=resolved_chat_id,
                     text=followup_text or "Open below 👇",
                     reply_markup=reply_markup,
                     disable_web_page_preview=False,
