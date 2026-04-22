@@ -27,7 +27,7 @@ class ScheduledPost:
         return self.active.strip().lower() in {"yes", "true", "1", "active"}
 
     def is_scheduled(self) -> bool:
-        return self.status.strip().lower() == "scheduled"
+        return self.status.strip().lower() in {"scheduled", "partial"}
 
     def normalized_target_channel(self) -> str:
         return (self.target_channel_text or "").strip()
