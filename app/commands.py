@@ -54,7 +54,8 @@ def safe_due_at(post, timezone):
 
 def _format_post_line(post, due_dt) -> str:
     due_text = due_dt.strftime("%Y-%m-%d %H:%M")
-    return f"• {post.post_id} | {due_text} | {post.content_type} | {post.theme or 'No theme'}"
+    target_text = post.normalized_target_channel() or "Holding Channel"
+    return f"• {post.post_id} | {due_text} | {target_text} | {post.content_type} | {post.theme or 'No theme'}"
 
 
 def build_handlers(
@@ -187,17 +188,62 @@ def build_handlers(
             await safe_reply(update.effective_message, f"Cannot send {target_post_id}: {reason}")
             return
 
-        try:
-            message_id = await scheduler_service.poster.send(post)
-            store.mark_sent(post.post_id, message_id)
-            store.clear_failed(post.post_id)
+        target_chat_ids = scheduler_service._safe_target_chat_ids(post)
+        if not target_chat_ids:
+            await safe_reply(update.effective_message, f"Cannot send {target_post_id}: invalid Target Channel")
+            return
+
+        success_targets: list[int] = []
+        failed_targets: list[tuple[int, str]] = []
+
+        for chat_id in target_chat_ids:
+            if store.was_sent_to(post.post_id, chat_id):
+                success_targets.append(chat_id)
+                continue
+
+            try:
+                message_id = await scheduler_service.poster.send(post, target_chat_id=chat_id)
+                store.mark_sent_to(post.post_id, chat_id, message_id)
+                store.clear_failed_to(post.post_id, chat_id)
+                success_targets.append(chat_id)
+            except Exception as exc:
+                failed_targets.append((chat_id, str(exc)))
+
+        if success_targets and not failed_targets:
             sheets.update_status(post.row_number, "Sent")
-            sheets.update_note(post.row_number, f"Manually sent. Message ID: {message_id}")
+            sheets.update_note(
+                post.row_number,
+                f"Manually sent successfully to target chat IDs: {', '.join(str(x) for x in success_targets)}",
+            )
             await safe_reply(update.effective_message, f"Sent {target_post_id} successfully.")
-        except Exception as exc:
+            return
+
+        if failed_targets and not success_targets:
             sheets.update_status(post.row_number, "Failed")
-            sheets.update_note(post.row_number, str(exc)[:1000])
-            await safe_reply(update.effective_message, f"Failed to send {target_post_id}: {exc}")
+            sheets.update_note(
+                post.row_number,
+                "Manual send failed on all targets: "
+                + " | ".join(f"{chat_id}: {error[:200]}" for chat_id, error in failed_targets),
+            )
+            await safe_reply(
+                update.effective_message,
+                f"Failed to send {target_post_id}: "
+                + " | ".join(f"{chat_id}: {error[:120]}" for chat_id, error in failed_targets),
+            )
+            return
+
+        sheets.update_status(post.row_number, "Partial")
+        sheets.update_note(
+            post.row_number,
+            f"Manual send partial. Sent to: {', '.join(str(x) for x in success_targets)} | "
+            f"Failed on: {' | '.join(f'{chat_id}: {error[:200]}' for chat_id, error in failed_targets)}",
+        )
+        await safe_reply(
+            update.effective_message,
+            f"Partial send for {target_post_id}. "
+            f"Sent to: {', '.join(str(x) for x in success_targets)} | "
+            f"Failed on: {' | '.join(f'{chat_id}: {error[:120]}' for chat_id, error in failed_targets)}",
+        )
 
     return [
         CommandHandler("status", status_cmd),
