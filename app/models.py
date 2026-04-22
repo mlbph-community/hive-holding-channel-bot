@@ -11,6 +11,7 @@ class ScheduledPost:
     post_id: str
     date_text: str
     time_text: str
+    target_channel_text: str
     content_type: str
     theme: str
     caption: str
@@ -27,6 +28,21 @@ class ScheduledPost:
 
     def is_scheduled(self) -> bool:
         return self.status.strip().lower() == "scheduled"
+
+    def normalized_target_channel(self) -> str:
+        return (self.target_channel_text or "").strip()
+
+    def target_channel_labels(self) -> list[str]:
+        value = self.normalized_target_channel()
+
+        if value == "Holding Channel":
+            return ["Holding Channel"]
+        if value == "Melbet Philippines":
+            return ["Melbet Philippines"]
+        if value == "Both":
+            return ["Holding Channel", "Melbet Philippines"]
+
+        return []
 
     def normalized_time_text(self) -> str:
         raw = (self.time_text or "").strip()
@@ -54,6 +70,11 @@ class ScheduledPost:
             return False, "Missing Date"
         if not self.time_text.strip():
             return False, "Missing Time (PHT)"
+
+        target_value = self.normalized_target_channel()
+        if target_value not in {"Holding Channel", "Melbet Philippines", "Both"}:
+            return False, f"Invalid Target Channel: {target_value or '<blank>'}"
+
         media_type = self.media_type.strip().lower()
         if media_type == "text only" and not self.caption.strip():
             return False, "Text Only posts need a Caption"
@@ -70,6 +91,7 @@ class ScheduledPost:
             post_id=str(row.get("Post ID", "")).strip(),
             date_text=str(row.get("Date", "")).strip(),
             time_text=str(row.get("Time (PHT)", "")).strip(),
+            target_channel_text=str(row.get("Target Channel", "")).strip(),
             content_type=str(row.get("Content Type", "")).strip(),
             theme=str(row.get("Theme", "")).strip(),
             caption=str(row.get("Caption", "")).strip(),
