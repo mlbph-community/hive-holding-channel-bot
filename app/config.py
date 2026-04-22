@@ -13,6 +13,7 @@ class Settings:
     bot_token: str
     holding_chat_id: int
     staging_chat_id: int
+    melbet_philippines_chat_id: int
     admin_chat_id: Optional[int]
     admin_user_ids: Tuple[int, ...]
     verification_bot_url: str
@@ -64,6 +65,7 @@ def load_settings() -> Settings:
         bot_token=_require("BOT_TOKEN"),
         holding_chat_id=int(_require("HOLDING_CHAT_ID")),
         staging_chat_id=int(_require("STAGING_CHAT_ID")),
+        melbet_philippines_chat_id=int(_require("MELBET_PHILIPPINES_CHAT_ID")),
         admin_chat_id=_optional_int("ADMIN_CHAT_ID"),
         admin_user_ids=_int_tuple("ADMIN_USER_IDS"),
         verification_bot_url=_require("VERIFICATION_BOT_URL"),
